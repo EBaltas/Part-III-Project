@@ -24,8 +24,8 @@ st_filt.filter("bandpass", freqmin=1, freqmax=8)
 #using S pick time for FLAT event
 
 s_pick = ob.UTCDateTime("2013-04-11T11:50:25.86")
-starttime = s_pick - 5
-endtime =s_pick + 25
+starttime = s_pick - 1
+endtime =s_pick + 1
 
 
 
@@ -43,10 +43,10 @@ tr_Z.plot()
 #st.plot()
 
 starttime = starttime.timestamp - ob.UTCDateTime("2013-04-11T00:00:00.00").timestamp
-endtime = (endtime-15).timestamp- ob.UTCDateTime("2013-04-11T00:00:00.00").timestamp
+endtime = endtime.timestamp- ob.UTCDateTime("2013-04-11T00:00:00.00").timestamp
 print(starttime, endtime)
 
-phi, dtt = SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25)
+phi, dtt = SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.1)
 
 print(phi, dtt)
 
