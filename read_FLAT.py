@@ -9,7 +9,7 @@ Created on Fri Feb 26 21:20:57 2021
 
 import obspy as ob
 import matplotlib.pyplot as plt
-from eigenvalue import SAndC_eigen
+from eigenvalue2 import SAndC_eigen
 
 st = ob.read("/Users/elisavetbaltas/Documents/Part_III_Physics/Project/FLAT/2013101_000000_FLAT_Z2.m")
 st += ob.read("/Users/elisavetbaltas/Documents/Part_III_Physics/Project/FLAT/2013101_000000_FLAT_N2.m")
