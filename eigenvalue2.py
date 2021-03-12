@@ -16,6 +16,10 @@ def RotMat2D(phi):
     return np.array([[np.cos(phi), -np.sin(phi)], #changed matrix so that it is consistent with MFAST
                      [np.sin(phi), np.cos(phi)]])
 
+def SourcePol(phicalc, V1_x, V1_y):
+    
+    return phicalc + np.rad2deg(np.arctan2(V1_x, V1_y)) + 180
+
 
 def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     
@@ -37,16 +41,17 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     
     Lambda2 = np.zeros((phiNumSamples, dttNumSamples))
     Lambda1 = np.zeros((phiNumSamples, dttNumSamples))
-    EigVect = np.zeros((phiNumSamples, dttNumSamples))
+    Vector2 = np.zeros((phiNumSamples, dttNumSamples, 2))
+    Vector1 = np.zeros((phiNumSamples, dttNumSamples, 2))
     
     selectionWin = np.array((int(starttime*sps), int(endtime*sps)))
     
     for i in range(phiNumSamples):
         phi = phiSamples[i]
         
-        R = RotMat2D(phi)
+        R1 = RotMat2D(phi)
         
-        FS = np.dot(R, EN)
+        FS = np.dot(R1, EN)
         
         for j in range(dttNumSamples):
             dtt = dttSamples[j]
@@ -57,16 +62,20 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
                 FS[0][delayWin[0]:delayWin[1]],         #this is lagged (consistent with MFAST)
                 FS[1][selectionWin[0]:selectionWin[1]]  #this is fast (again consistent with MFAST)
             ))
-            print(FS_lag.shape)
-            print(R.T.shape)
         
             CovMat = np.cov(FS_lag[0], FS_lag[1])
         
             eigenval, eigenvect = np.linalg.eig(CovMat)
             Lambda2[i, j] = eigenval.min()
+            Lambda1[i, j] = eigenval.max()
+            max_index = np.argmax(eigenval)
+            Vector1[i, j] = eigenvect[:, max_index]
             print(Lambda2[i, j])
         
     EVindex = np.where(Lambda2 == Lambda2.min())
+    V1 = Vector1[EVindex][0]    
+    
+    print(V1)
     
     if len(EVindex) > 2:
         raise IndexError("More than 1 solution found")
@@ -74,6 +83,11 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     phiCalc = phiSamples[EVindex[0]][0]
     dttCalc = dttSamples[EVindex[1]][0]
     
+    source_pol = SourcePol(phiCalc, V1[0], V1[1])
+    
+    print("source polarisation =", source_pol)
+    
+
     return phiCalc, dttCalc/sps
     
     
