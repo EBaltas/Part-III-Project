@@ -46,7 +46,7 @@ starttime = starttime.timestamp - ob.UTCDateTime("2013-04-11T00:00:00.00").times
 endtime = endtime.timestamp- ob.UTCDateTime("2013-04-11T00:00:00.00").timestamp
 print(starttime, endtime)
 
-phi, dtt = SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.1)
+phi, dtt, _, _, _, _ = SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.6)
 
 print(phi, dtt)
 
