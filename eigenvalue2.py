@@ -101,6 +101,12 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     #Rotate orginal EN using phiCalc
     FS2 = np.dot(R2, EN)
     
+    #Trimming FS2 to selection window for plotting
+    FS2_trim = np.array((
+        FS2[0][selectionWin[0]:selectionWin[1]],
+        FS2[1][selectionWin[0]:selectionWin[1]]
+        ))
+    
     #Apply dtt
     FS2_Lag = np.array((
         FS2[0][delayWin2[0]:delayWin2[1]],
@@ -131,12 +137,57 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     
     L2_norm = L2/conf95
     
-    cs = plt.contour(dttSamples/100, phiSamples, L2_norm)
+    contour = plt.contour(dttSamples/100, phiSamples, L2_norm)
+    
+    
+######### MFAST 
+    j_min = dttNumSamples
+    j_max = 0
+    line_test = []
+    
+    for i in range(phiNumSamples):
+        for j in range(dttNumSamples):
+            if (L2_norm[i, j] <= 1.0):
+                j_min = min(j_min, j)
+                j_max = max(j_max, j)
+    
+    j_range = j_max - j_min
+    print("phiNumSAmples=",phiNumSamples)
+    print("j_min =", j_min, " j_max =", j_max, " j_range =", j_range)
+    jerror = 0.25*j_range
+    print("jerror=",jerror)
+    
 
-    return phiCalc, dttCalc/sps, FS2[0], FS2[1], FS2_Lag[0], FS2_Lag[1]
+    line = np.zeros(phiNumSamples, dtype=int)
     
+    for j in range (dttNumSamples):
+        for i in range(phiNumSamples):
+            if (L2_norm[i, j] <= 1.0):
+                line[i] = 1
     
+    i_range_min = 0
     
-        
-        
-                                                     
+    for i in range (phiNumSamples):
+        i_range_min = i_range_min + line[i]
+    
+    i_range_max = phiNumSamples
+    
+    for i in range(i_range_min, i_range_max):
+        for i_start in range(phiNumSamples):
+            for k in range(phiNumSamples):
+                line_test[k] = 0
+            for k in range(i_start, i_start+1):
+                if (k > phiNumSamples):
+                    k1 = k - phiNumSamples
+                else:
+                    k1 = k
+                line_test[k1] = 1
+            for k in range(phiNumSamples):
+                if ((line[k] == 1) and (line_test[k] != 1)):
+                    break
+      
+                
+      
+    return phiCalc, dttCalc/sps, FS2[0], FS2[1], FS2_trim[0], FS2_trim[1], FS2_Lag[0], FS2_Lag[1]
+
+           
