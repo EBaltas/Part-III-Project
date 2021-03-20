@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar  1 21:52:19 2021
+Created on Thu Mar 18 15:07:50 2021
 
 @author: elisavetbaltas
 """
+
 
 import numpy as np
 import obspy as obs
@@ -14,17 +15,14 @@ from scipy.stats import f
 import matplotlib.pyplot as plt
 
 def RotMat2D(phi):
-    
     phi = np.deg2rad(phi)
     return np.array([[np.cos(phi), -np.sin(phi)], #changed matrix so that it is consistent with MFAST
                      [np.sin(phi), np.cos(phi)]])
 
 def SourcePol(phicalc, V1_x, V1_y):
-    
     return phicalc + np.rad2deg(np.arctan2(V1_x, V1_y)) + 180
 
 def CR95(L2, NDF, C=2, a=0.05):
-    
     return L2*(1+((C/(NDF-C))*f.isf(a, C, NDF-C)))
 
 
@@ -35,6 +33,7 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
         st_filt.select(component="N")[0].data))
     
     sps = st_filt[0].stats.sampling_rate
+    delta = 1./sps
     timeDelay *= sps
     step = 1
     
@@ -61,7 +60,6 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
         for j in range(dttNumSamples):
             dtt = dttSamples[j]
             delayWin = selectionWin + dtt
-            print("SelectWin=",selectionWin," delayWin=",delayWin)
         
             FS_lag = np.array((
                 FS[0][delayWin[0]:delayWin[1]],         #this is lagged (consistent with MFAST)
@@ -75,7 +73,6 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
             Lambda1[i, j] = eigenval.max()
             max_index = np.argmax(eigenval)
             Vector1[i, j] = eigenvect[:, max_index]
-            print(Lambda2[i, j])
         
     EVindex = np.where(Lambda2 == Lambda2.min())
     V1 = Vector1[EVindex][0]    
@@ -140,7 +137,7 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     contour = plt.contour(dttSamples/100, phiSamples, L2_norm)
     
     
-######### MFAST 
+######### MFAST Error loops
     j_min = dttNumSamples
     j_max = 0
     line_test = []
@@ -152,13 +149,10 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
                 j_max = max(j_max, j)
     
     j_range = j_max - j_min
-    print("phiNumSAmples=",phiNumSamples)
     print("j_min =", j_min, " j_max =", j_max, " j_range =", j_range)
-    jerror = 0.25*j_range
-    print("jerror=",jerror)
     
-
-    line = np.zeros(phiNumSamples, dtype=int)
+    i_range = 0 
+    line = np.zeros(phiNumSamples+1, dtype=int)
     
     for j in range (dttNumSamples):
         for i in range(phiNumSamples):
@@ -169,25 +163,57 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     
     for i in range (phiNumSamples):
         i_range_min = i_range_min + line[i]
+    print("i_range_min=",i_range_min)
     
     i_range_max = phiNumSamples
     
+    label_1 = False
+    label_11 = False
+
     for i in range(i_range_min, i_range_max):
         for i_start in range(phiNumSamples):
-            for k in range(phiNumSamples):
-                line_test[k] = 0
-            for k in range(i_start, i_start+1):
+            line_test = np.zeros(phiNumSamples + 1, dtype=int)
+            for k in range(i_start, i_start + i):
                 if (k > phiNumSamples):
                     k1 = k - phiNumSamples
                 else:
                     k1 = k
                 line_test[k1] = 1
+            label_1 = False
             for k in range(phiNumSamples):
-                if ((line[k] == 1) and (line_test[k] != 1)):
+                if ((line[k] == 1) and (line_test[k] != 1)): 
+                    label_1 = True
                     break
-      
-                
-      
+            if not label_1:
+                i_range = i
+                label_11 = True
+                break
+        print("New i,i_start,k=",i,i_start,k)
+        if label_11:
+            break    
+    
+    print("Final i_range=",i_range)  
+    
+    jerror = 0.25*j_range
+    dtError = jerror * delta * step
+    
+    ierror = 0.25*i_range
+    phiError = 180.  * ierror / (phiNumSamples - 1) 
+    
+    print("---------------------------------------")
+    print("dtError = ",dtError)
+    print("phiError=",phiError)
+
     return phiCalc, dttCalc/sps, FS2[0], FS2[1], FS2_trim[0], FS2_trim[1], FS2_Lag[0], FS2_Lag[1]
 
-           
+
+
+
+
+
+
+
+
+
+
+
