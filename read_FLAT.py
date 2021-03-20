@@ -44,11 +44,11 @@ tr_Z.plot()
 
 starttime = starttime.timestamp - ob.UTCDateTime("2013-04-11T00:00:00.00").timestamp
 endtime = endtime.timestamp- ob.UTCDateTime("2013-04-11T00:00:00.00").timestamp
-print(starttime, endtime)
+#print(starttime, endtime)
 
-phi, dtt, _, _, _, _ = SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.6)
+phi, dtt, _, _, _, _, _, _ = SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.4)
 
-print(phi, dtt)
+print("phi=",phi, " dt=",dtt)
 
 #st_filt.trim(starttime, endtime)
 
