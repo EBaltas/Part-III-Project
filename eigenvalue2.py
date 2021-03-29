@@ -8,11 +8,14 @@ Created on Thu Mar 18 15:07:50 2021
 
 
 import numpy as np
+import pandas as pd
 import obspy as obs
 from obspy.signal.util import next_pow_2
 import itertools
 from scipy.stats import f
+from scipy.fft import fft
 import matplotlib.pyplot as plt
+import csv
 
 def RotMat2D(phi):
     phi = np.deg2rad(phi)
@@ -20,35 +23,45 @@ def RotMat2D(phi):
                      [np.sin(phi), np.cos(phi)]])
 
 def SourcePol(phicalc, V1_x, V1_y):
-    return phicalc + np.rad2deg(np.arctan2(V1_x, V1_y)) + 180
+    spol = phicalc + np.rad2deg(np.arctan2(V1_x, V1_y))
+    if spol > 90:
+        spol -= 180
+    elif spol < -90:
+        spol += 180
+    else:
+        spol = spol
+    return spol
 
 def CR95(L2, NDF, C=2, a=0.05):
-    return L2*(1+((C/(NDF-C))*f.isf(a, C, NDF-C)))
+    return L2*(1+((C/(NDF-C))*f.ppf(1-a, C, NDF-C)))
 
 
-def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
+def SAndC_eigen(x, y, iwbegix, iwendix, timeDelay, sps):
     
     EN = np.array((
-        st_filt.select(component="E")[0].data,
-        st_filt.select(component="N")[0].data))
+         x,
+         y))
     
-    sps = st_filt[0].stats.sampling_rate
     delta = 1./sps
-    timeDelay *= sps
     step = 1
     
     phiSamples = np.arange(-90, 90+step, step, dtype=int)
-    dttSamples = np.arange(0, timeDelay+step, step, dtype=int)
+    dttSamples = np.arange(0, timeDelay + step, step, dtype=int)
     
     phiNumSamples = phiSamples.size
     dttNumSamples = dttSamples.size
+    print("phiNumSamples=",phiNumSamples," dttNumSamples=",dttNumSamples)
     
     Lambda2 = np.zeros((phiNumSamples, dttNumSamples))
     Lambda1 = np.zeros((phiNumSamples, dttNumSamples))
     Vector2 = np.zeros((phiNumSamples, dttNumSamples, 2))
     Vector1 = np.zeros((phiNumSamples, dttNumSamples, 2))
     
-    selectionWin = np.array((int(starttime*sps), int(endtime*sps)))
+    #selectionWin = np.array((1471,1593))
+    selectionWin = np.array((iwbegix, iwendix))
+  
+    
+    print("selectionWin=",selectionWin)
     
     for i in range(phiNumSamples):
         phi = phiSamples[i]
@@ -75,9 +88,8 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
             Vector1[i, j] = eigenvect[:, max_index]
         
     EVindex = np.where(Lambda2 == Lambda2.min())
+    print("Lambda2_min=",Lambda2.min())
     V1 = Vector1[EVindex][0]    
-    
-    print(V1)
     
     if len(EVindex) > 2:
         raise IndexError("More than 1 solution found")
@@ -86,7 +98,6 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     dttCalc = dttSamples[EVindex[1]][0]
     
     source_pol = SourcePol(phiCalc, V1[0], V1[1])
-    
     print("source polarisation =", source_pol)
 
     
@@ -117,25 +128,35 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     
     #Calculating number of degrees of freedom
     npoints = FS_SP[0].size
+    
     N2 = next_pow_2(npoints)
-    
+    print("npoints=",npoints," N2=",N2)
+    print("norig =", selectionWin[1] - selectionWin[0])
     spec_mag = abs(np.fft.fft(FS_SP[0], N2))
+    print("npoints2 =",int(len(FS_SP[0])))
     
-    F2 = (spec_mag**2).sum()-((spec_mag[0]**2)-(spec_mag[-1]**2))/2
-    F4 = (4/3)*(spec_mag**4).sum()-((spec_mag[0]**4)-(spec_mag[-1]**4))/3
+    F2 = (spec_mag**2).sum()-((spec_mag[0]**2)+(spec_mag[-1]**2))/2
+    F4 = (4/3)*(spec_mag**4).sum()-((spec_mag[0]**4)+(spec_mag[-1]**4))
+    print("F2=",F2," F4=",F4)
     
-    NDF = int(round((2*(F2**2)/F4)-1))
+    NDF = int(round(2*(2*(F2**2)/F4)-2))
     
     print("Number of degrees of freedom =", NDF)
     
     L2 = Lambda2.copy()
     
     conf95 = CR95(L2.min(), NDF)
+    print("conf95=",conf95)
+    
     
     L2_norm = L2/conf95
     
-    contour = plt.contour(dttSamples/100, phiSamples, L2_norm)
+    #contour = plt.contour(dttSamples/sps, phiSamples, L2_norm)
     
+    fig, ax = plt.subplots()
+    CS = ax.contour(dttSamples/sps, phiSamples, L2_norm, level=2)
+    ax.clabel(CS, inline=1, fontsize=10)
+    ax.set_title('Normalised Lambda_2')
     
 ######### MFAST Error loops
     j_min = dttNumSamples
@@ -152,7 +173,7 @@ def SAndC_eigen(st_filt, starttime, endtime, timeDelay=0.25):
     print("j_min =", j_min, " j_max =", j_max, " j_range =", j_range)
     
     i_range = 0 
-    line = np.zeros(phiNumSamples+1, dtype=int)
+    line = np.zeros(phiNumSamples + 1, dtype=int)
     
     for j in range (dttNumSamples):
         for i in range(phiNumSamples):
